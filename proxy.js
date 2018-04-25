@@ -580,14 +580,6 @@ function balanceWorkers(){
 }
 
 function enumerateWorkerStats() {
-    // here we do a bit of a hack and "cache" the activeWorkers
-    // this file is parsed for the http://host/json endpoint
-    if(global.config.httpEnable) {
-        fs.writeFile("workers.json", JSON.stringify(activeWorkers), function(err) {
-            if(err)
-                return console.log(err);
-        });
-    }
     let stats, global_stats = {miners: 0, hashes: 0, hashRate: 0, diff: 0};
     for (let poolID in activeWorkers){
         if (activeWorkers.hasOwnProperty(poolID)){
@@ -963,23 +955,23 @@ function handleMinerData(method, params, ip, portData, sendReply, pbushMessage, 
 }
 
 function activateHTTP() {
+	if(!global.config.httpEnable)
+		return;
+
 	var jsonServer = http.createServer((req, res) => {
-		if(req.url == "/") {
-			res.writeHead(200, {'Content-type':'text/html'});
+		if(["/", "/index.html"].includes(req.url)) {
 			fs.readFile('index.html', 'utf8', function(err, contents) {
-				res.write(contents);
-				res.end();
-			})
-		} else if(req.url.split("?")[0] == "/json") {
-			fs.readFile('workers.json', 'utf8', (err, data) => {
-				if(err) {
+				if(!err) {
+					res.writeHead(200, {'Content-type':'text/html'});
+					res.write(contents);
+				} else
 					res.writeHead(503);
-				} else {
-					res.writeHead(200, {'Content-type':'application/json'});
-					res.write(data + "\r\n");
-				}
 				res.end();
 			});
+		} else if(req.url.split("?")[0] == "/json") {
+			res.writeHead(200, {'Content-type':'application/json'});
+			res.write(buildMinerJSON() + "\r\n");
+			res.end();
 		} else {
 			res.writeHead(404);
 			res.end();
@@ -987,6 +979,37 @@ function activateHTTP() {
 	});
 
 	jsonServer.listen(global.config.httpPort || "8080", global.config.httpAddress || "localhost")
+}
+
+function buildMinerJSON() {
+	let allminers = [];
+	for (let workerID in activeWorkers) {
+		if (!activeWorkers.hasOwnProperty(workerID))
+			continue;
+		for (let minerID in activeWorkers[workerID]) {
+			if (!activeWorkers[workerID].hasOwnProperty(minerID))
+				continue;
+			let miner = activeWorkers[workerID][minerID];
+			if (typeof(miner) === 'undefined' || !miner)
+				continue;
+			// let's just be real explicit about what we're going to send
+			allminers.push({
+				'avgSpeed': miner.avgSpeed,
+				'blocks': miner.blocks,
+				'coin': miner.coin,
+				'diff': miner.diff,
+				'hashes': miner.hashes,
+				'id': miner.id,
+				'lastContact': miner.lastContact,
+				'lastShare': miner.lastShare,
+				'password': miner.password,
+				'pool': miner.pool,
+				'shares': miner.shares
+			});
+		}
+	}
+
+	return JSON.stringify(allminers);
 }
 
 function activatePorts() {
