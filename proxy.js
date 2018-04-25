@@ -849,7 +849,7 @@ function Miner(id, params, ip, pushMessage, portData, minerSocket) {
 }
 
 // Slave Functions
-function handleMinerData(method, params, ip, portData, sendReply, pushMessage, minerSocket) {
+function handleMinerData(method, params, ip, portData, sendReply, pbushMessage, minerSocket) {
     /*
     Deals with handling the data from miners in a sane-ish fashion.
      */
@@ -970,7 +970,7 @@ function activateHTTP() {
 				res.write(contents);
 				res.end();
 			})
-		} else if(req.url.substring(0, 5) == "/json") {
+		} else if(req.url.split("?")[0] == "/json") {
 			fs.readFile('workers.json', 'utf8', (err, data) => {
 				if(err) {
 					res.writeHead(503);
