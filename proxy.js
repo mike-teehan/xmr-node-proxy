@@ -44,6 +44,9 @@ let activePools = {};
 let activeWorkers = {};
 let defaultPools = {};
 let masterStats = {shares: 0, blocks: 0, hashes: 0};
+let minerCacheJSON = "";
+let minerCacheTimeout = 0;
+let minerCacheDuration = 15000;
 
 // IPC Registry
 function masterMessageHandler(worker, message, handle) {
@@ -982,34 +985,38 @@ function activateHTTP() {
 }
 
 function buildMinerJSON() {
-	let allminers = [];
-	for (let workerID in activeWorkers) {
-		if (!activeWorkers.hasOwnProperty(workerID))
-			continue;
-		for (let minerID in activeWorkers[workerID]) {
-			if (!activeWorkers[workerID].hasOwnProperty(minerID))
+	if(minerCacheTimeout < Date.now()) {
+		let miners = [];
+		for (let workerID in activeWorkers) {
+			if (!activeWorkers.hasOwnProperty(workerID))
 				continue;
-			let miner = activeWorkers[workerID][minerID];
-			if (typeof(miner) === 'undefined' || !miner)
-				continue;
-			// let's just be real explicit about what we're going to send
-			allminers.push({
-				'avgSpeed': miner.avgSpeed,
-				'blocks': miner.blocks,
-				'coin': miner.coin,
-				'diff': miner.diff,
-				'hashes': miner.hashes,
-				'id': miner.id,
-				'lastContact': miner.lastContact,
-				'lastShare': miner.lastShare,
-				'password': miner.password,
-				'pool': miner.pool,
-				'shares': miner.shares
-			});
+			for (let minerID in activeWorkers[workerID]) {
+				if (!activeWorkers[workerID].hasOwnProperty(minerID))
+					continue;
+				let miner = activeWorkers[workerID][minerID];
+				if (typeof(miner) === 'undefined' || !miner)
+					continue;
+				// let's just be real explicit about what we're going to send
+				miners.push({
+					'avgSpeed': miner.avgSpeed,
+					'blocks': miner.blocks,
+					'coin': miner.coin,
+					'diff': miner.diff,
+					'hashes': miner.hashes,
+					'id': miner.id,
+					'lastContact': miner.lastContact,
+					'lastShare': miner.lastShare,
+					'password': miner.password,
+					'pool': miner.pool,
+					'shares': miner.shares
+				});
+			}
 		}
+		minerCacheJSON = JSON.stringify(miners);
+		minerCacheTimeout = Date.now() + minerCacheDuration;
 	}
 
-	return JSON.stringify(allminers);
+	return minerCacheJSON;
 }
 
 function activatePorts() {
